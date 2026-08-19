@@ -28,10 +28,10 @@ export default function OverlayPage() {
   function getImage(url) {
     if (!imageCache.current[url]) {
       const img = new Image();
-      img.crossOrigin = 'anonymous';
       img.src = url;
       imageCache.current[url] = { el: img, ready: false };
       img.onload = () => { imageCache.current[url].ready = true; };
+      img.onerror = () => { console.warn('Avatar failed to load:', url); };
     }
     return imageCache.current[url];
   }
