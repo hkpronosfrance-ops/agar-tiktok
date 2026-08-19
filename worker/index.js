@@ -92,7 +92,11 @@ async function main() {
     const likeCount = data.count || 1;
 
     if (!scores[uniqueId]) {
-      const pictureUrl = getPreferredPictureFormat(data.user?.avatarLarge?.urlList);
+      const avatarSource = data.user?.avatarLarge || data.user?.avatarMedium || data.user?.avatarThumb;
+      const pictureUrl = getPreferredPictureFormat(avatarSource?.urlList);
+      if (!pictureUrl) {
+        console.warn(`⚠️ Pas d'URL avatar trouvée pour ${uniqueId} (avatarLarge/Medium/Thumb absents sur ce message)`);
+      }
       const avatarUrl = pictureUrl ? await cacheAvatar(uniqueId, pictureUrl) : null;
       scores[uniqueId] = { nickname: data.user?.nickname || uniqueId, avatarUrl, score: 0 };
     }
