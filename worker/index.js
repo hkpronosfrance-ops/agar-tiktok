@@ -74,7 +74,9 @@ async function main() {
   await channel.subscribe();
   console.log(`📡 Canal Supabase "${CHANNEL_NAME}" prêt`);
 
-  const connection = new WebcastPushConnection(TIKTOK_USERNAME);
+  const connection = new WebcastPushConnection(TIKTOK_USERNAME, {
+    signApiKey: process.env.EULER_SIGN_API_KEY || undefined,
+  });
 
   connection.on('like', async (data) => {
     const uniqueId = data.uniqueId;
