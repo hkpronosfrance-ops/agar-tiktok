@@ -235,13 +235,16 @@ export default function OverlayPage() {
           background: 'rgba(8,10,18,.42)', backdropFilter: 'blur(6px)',
           border: remaining <= 30 ? '1px solid rgba(254,44,85,.5)' : '1px solid rgba(255,255,255,.08)',
           boxShadow: remaining <= 30 ? '0 0 24px rgba(254,44,85,.35)' : 'none',
-          transition: 'box-shadow .3s, border-color .3s',
         }}>
           <span style={{
-            background: remaining <= 30
+            display: 'inline-block',
+            backgroundImage: remaining <= 30
               ? 'linear-gradient(90deg,#FE2C55,#ff7a3d)'
               : 'linear-gradient(90deg,#25F4EE,#FE2C55)',
-            WebkitBackgroundClip: 'text', color: 'transparent',
+            backgroundClip: 'text',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            color: 'transparent',
           }}>
             {fmt(remaining)}
           </span>
@@ -296,7 +299,9 @@ export default function OverlayPage() {
           <div style={{ textAlign: 'center', padding: '0 8%' }}>
             <div style={{
               fontFamily: "'Baloo 2', sans-serif", fontWeight: 800, fontSize: 'clamp(24px, 7vw, 34px)', marginBottom: '5vh',
-              background: 'linear-gradient(90deg,#25F4EE,#FE2C55)', WebkitBackgroundClip: 'text', color: 'transparent',
+              display: 'inline-block',
+              backgroundImage: 'linear-gradient(90deg,#25F4EE,#FE2C55)',
+              backgroundClip: 'text', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', color: 'transparent',
             }}>
               FIN DE MANCHE
             </div>
