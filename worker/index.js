@@ -4,7 +4,9 @@ import { getPreferredPictureFormat } from 'tiktok-live-connector/legacy';
 import { createClient } from '@supabase/supabase-js';
 
 const TIKTOK_USERNAME = process.env.TIKTOK_USERNAME;
-const ROUND_SECONDS = parseInt(process.env.ROUND_SECONDS || '300', 10);
+const ROUND_SECONDS = parseInt(process.env.ROUND_SECONDS || '150', 10);      // 2:30 par défaut
+const PODIUM_SECONDS = parseInt(process.env.PODIUM_SECONDS || '18', 10);    // podium + classement général
+const RULES_SECONDS = parseInt(process.env.RULES_SECONDS || '12', 10);      // écran règles + compte à rebours
 const CHANNEL_NAME = 'blob-battle';
 
 if (!TIKTOK_USERNAME) {
@@ -55,6 +57,33 @@ async function cacheAvatar(uniqueId, profilePictureUrl) {
   }
 }
 
+// Sauvegarde le vainqueur (incrémente son compteur de victoires) et renvoie
+// le classement général (top 10 par nombre de victoires).
+async function saveWinnerAndGetAlltime(winner) {
+  if (winner) {
+    const { error } = await supabase.rpc('increment_win', {
+      p_unique_id: winner.uniqueId,
+      p_nickname: winner.nickname,
+      p_avatar_url: winner.avatarUrl,
+    });
+    if (error) console.error('⚠️ Échec sauvegarde du vainqueur:', error.message);
+  }
+
+  const { data, error: selectError } = await supabase
+    .from('wins')
+    .select('unique_id, nickname, avatar_url, win_count')
+    .order('win_count', { ascending: false })
+    .limit(10);
+
+  if (selectError) {
+    console.error('⚠️ Échec lecture classement général:', selectError.message);
+    return [];
+  }
+  return (data || []).map((r) => ({
+    uniqueId: r.unique_id, nickname: r.nickname, avatarUrl: r.avatar_url, winCount: r.win_count,
+  }));
+}
+
 function startRoundLoop() {
   if (roundLoop) clearInterval(roundLoop);
   roundEndsAt = Date.now() + ROUND_SECONDS * 1000;
@@ -63,17 +92,30 @@ function startRoundLoop() {
 
   roundLoop = setInterval(async () => {
     if (Date.now() < roundEndsAt) return;
+    clearInterval(roundLoop);
 
     const ranking = Object.entries(scores)
       .map(([uniqueId, v]) => ({ uniqueId, ...v }))
       .sort((a, b) => b.score - a.score);
+    const winner = ranking[0] || null;
 
     console.log('🏆 Fin de manche —', ranking.slice(0, 3).map(r => `${r.nickname}:${r.score}`).join(', '));
     await broadcast('round_end', { ranking: ranking.slice(0, 3) });
 
-    scores = {};
-    clearInterval(roundLoop);
-    setTimeout(startRoundLoop, 4500); // laisse le podium s'afficher côté overlay
+    // Phase 1 : podium de la manche + sauvegarde du vainqueur (affiché ~PODIUM_SECONDS)
+    const alltime = await saveWinnerAndGetAlltime(winner);
+    await broadcast('alltime_leaderboard', { leaderboard: alltime, seconds: PODIUM_SECONDS });
+
+    setTimeout(async () => {
+      // Phase 2 : écran règles + compte à rebours (affiché ~RULES_SECONDS)
+      await broadcast('rules_intro', { seconds: RULES_SECONDS });
+
+      setTimeout(() => {
+        // Phase 3 : nouvelle manche, pile à la fin du compte à rebours
+        scores = {};
+        startRoundLoop();
+      }, RULES_SECONDS * 1000);
+    }, PODIUM_SECONDS * 1000);
   }, 500);
 }
 

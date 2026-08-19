@@ -23,8 +23,15 @@ export default function OverlayPage() {
 
   const [leaderboard, setLeaderboard] = useState([]);
   const [remaining, setRemaining] = useState(0);
-  const [podium, setPodium] = useState(null);
   const [connected, setConnected] = useState(false);
+
+  // Séquence de fin de manche : 'round' (podium de la manche) -> 'alltime'
+  // (classement général par victoires) -> 'rules' (règles + compte à rebours) -> null
+  const [phase, setPhase] = useState(null);
+  const [roundRanking, setRoundRanking] = useState([]);
+  const [alltime, setAlltime] = useState([]);
+  const [rulesRemaining, setRulesRemaining] = useState(0);
+  const rulesIntervalRef = useRef(null);
 
   function getImage(url) {
     if (!imageCache.current[url]) {
@@ -66,12 +73,28 @@ export default function OverlayPage() {
     channel.on('broadcast', { event: 'round_start' }, ({ payload }) => {
       viewersRef.current = {};
       roundEndsAtRef.current = payload.endsAt;
-      setPodium(null);
+      setPhase(null);
+      if (rulesIntervalRef.current) clearInterval(rulesIntervalRef.current);
       setConnected(true);
     });
 
     channel.on('broadcast', { event: 'round_end' }, ({ payload }) => {
-      setPodium(payload.ranking);
+      setRoundRanking(payload.ranking);
+      setPhase('round');
+    });
+
+    channel.on('broadcast', { event: 'alltime_leaderboard' }, ({ payload }) => {
+      setAlltime(payload.leaderboard);
+      setPhase('alltime');
+    });
+
+    channel.on('broadcast', { event: 'rules_intro' }, ({ payload }) => {
+      setPhase('rules');
+      setRulesRemaining(payload.seconds);
+      if (rulesIntervalRef.current) clearInterval(rulesIntervalRef.current);
+      rulesIntervalRef.current = setInterval(() => {
+        setRulesRemaining((s) => Math.max(0, s - 1));
+      }, 1000);
     });
 
     channel.on('broadcast', { event: 'state_sync' }, ({ payload }) => {
@@ -291,7 +314,7 @@ export default function OverlayPage() {
         ))}
       </div>
 
-      {podium && (
+      {phase === 'round' && (
         <div style={{
           position: 'absolute', inset: 0, zIndex: 30, display: 'flex', alignItems: 'center', justifyContent: 'center',
           background: 'rgba(5,7,12,.78)', backdropFilter: 'blur(6px)',
@@ -305,7 +328,7 @@ export default function OverlayPage() {
             }}>
               FIN DE MANCHE
             </div>
-            {podium.map((p, i) => (
+            {roundRanking.map((p, i) => (
               <div key={p.uniqueId} style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12,
                 color: '#fff', fontFamily: 'Inter, sans-serif', fontSize: 'clamp(19px, 5vw, 25px)',
@@ -320,6 +343,85 @@ export default function OverlayPage() {
                 <span>{['🥇', '🥈', '🥉'][i]} @{p.nickname} — {p.score} pts</span>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {phase === 'alltime' && (
+        <div style={{
+          position: 'absolute', inset: 0, zIndex: 30, display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: 'rgba(5,7,12,.78)', backdropFilter: 'blur(6px)',
+        }}>
+          <div style={{ textAlign: 'center', padding: '0 8%', width: '100%' }}>
+            <div style={{
+              fontFamily: "'Baloo 2', sans-serif", fontWeight: 800, fontSize: 'clamp(24px, 6.4vw, 36px)', marginBottom: '4vh',
+              display: 'inline-block',
+              backgroundImage: 'linear-gradient(90deg,#25F4EE,#FE2C55)',
+              backgroundClip: 'text', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', color: 'transparent',
+            }}>
+              🏆 CLASSEMENT GÉNÉRAL
+            </div>
+            <div style={{ maxWidth: 460, margin: '0 auto' }}>
+              {alltime.length === 0 && (
+                <div style={{ color: 'rgba(255,255,255,.6)', fontFamily: 'Inter, sans-serif', fontSize: 16 }}>
+                  Sois le premier à gagner une manche !
+                </div>
+              )}
+              {alltime.map((p, i) => (
+                <div key={p.uniqueId} style={{
+                  display: 'flex', alignItems: 'center', gap: 12,
+                  color: '#fff', fontFamily: 'Inter, sans-serif', fontSize: 'clamp(16px, 4vw, 20px)',
+                  fontWeight: i === 0 ? 700 : 500, margin: '10px 0', textAlign: 'left',
+                }}>
+                  <span style={{ width: 28, textAlign: 'center', flex: 'none' }}>{['🥇', '🥈', '🥉'][i] || (i + 1)}</span>
+                  {p.avatarUrl
+                    ? <img src={p.avatarUrl} style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover', flex: 'none' }} />
+                    : <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#444', flex: 'none' }} />}
+                  <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>@{p.nickname}</span>
+                  <span style={{ color: '#25F4EE', fontFamily: 'monospace', flex: 'none' }}>
+                    {p.winCount} 🏆
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {phase === 'rules' && (
+        <div style={{
+          position: 'absolute', inset: 0, zIndex: 30, display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: 'rgba(5,7,12,.78)', backdropFilter: 'blur(6px)',
+        }}>
+          <div style={{ textAlign: 'center', padding: '0 9%' }}>
+            <div style={{
+              fontFamily: "'Baloo 2', sans-serif", fontWeight: 800, fontSize: 'clamp(24px, 6.4vw, 36px)', marginBottom: '4vh',
+              display: 'inline-block',
+              backgroundImage: 'linear-gradient(90deg,#25F4EE,#FE2C55)',
+              backgroundClip: 'text', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', color: 'transparent',
+            }}>
+              COMMENT JOUER ?
+            </div>
+            <div style={{
+              color: '#fff', fontFamily: 'Inter, sans-serif', fontSize: 'clamp(16px, 4vw, 20px)',
+              lineHeight: 1.7, marginBottom: '4vh',
+            }}>
+              ❤️ Chaque like = 1 point pour ton blob<br />
+              📈 Plus tu likes, plus ton blob grossit<br />
+              🏆 Le plus de points à la fin de la manche gagne
+            </div>
+            <div style={{
+              fontFamily: "'Baloo 2', sans-serif", fontWeight: 800, fontSize: 'clamp(40px, 10vw, 60px)',
+              color: '#fff',
+            }}>
+              {rulesRemaining}s
+            </div>
+            <div style={{
+              fontFamily: 'Inter, sans-serif', fontWeight: 600, fontSize: 'clamp(13px, 2.8vw, 16px)',
+              color: 'rgba(255,255,255,.6)', textTransform: 'uppercase', letterSpacing: '.06em', marginTop: 6,
+            }}>
+              Prochaine manche
+            </div>
           </div>
         </div>
       )}
