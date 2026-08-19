@@ -7,7 +7,7 @@
     "start": "node index.js"
   },
   "dependencies": {
-    "tiktok-live-connector": "^1.2.4",
+    "tiktok-live-connector": "1.2.3",
     "@supabase/supabase-js": "^2.45.4",
     "dotenv": "^16.4.5"
   }
