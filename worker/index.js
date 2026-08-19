@@ -1,5 +1,6 @@
 import 'dotenv/config';
-import { WebcastPushConnection } from 'tiktok-live-connector/legacy';
+import { TikTokLiveConnection, WebcastEvent, ControlEvent } from 'tiktok-live-connector';
+import { getPreferredPictureFormat } from 'tiktok-live-connector/legacy';
 import { createClient } from '@supabase/supabase-js';
 
 const TIKTOK_USERNAME = process.env.TIKTOK_USERNAME;
@@ -17,6 +18,12 @@ if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 const channel = supabase.channel(CHANNEL_NAME, { config: { broadcast: { self: false } } });
+
+// Filet de sécurité : certains messages TikTok rares peuvent faire planter la
+// librairie (bug connu). On log plutôt que de laisser le process crasher.
+process.on('uncaughtException', (err) => {
+  console.error('⚠️ Exception non gérée (le worker continue) :', err?.message || err);
+});
 
 let scores = {};             // uniqueId -> { nickname, avatarUrl, score }
 const avatarCache = new Map(); // uniqueId -> URL publique Supabase Storage
@@ -74,17 +81,20 @@ async function main() {
   await channel.subscribe();
   console.log(`📡 Canal Supabase "${CHANNEL_NAME}" prêt`);
 
-  const connection = new WebcastPushConnection(TIKTOK_USERNAME, {
+  const connection = new TikTokLiveConnection(TIKTOK_USERNAME, {
     signApiKey: process.env.EULER_SIGN_API_KEY || undefined,
   });
 
-  connection.on('like', async (data) => {
-    const uniqueId = data.uniqueId;
-    const likeCount = data.likeCount || 1;
+  connection.on(WebcastEvent.LIKE, async (data) => {
+    const uniqueId = data.user?.displayId;
+    if (!uniqueId) return; // messages sans displayId (rare), on ignore
+
+    const likeCount = data.count || 1;
 
     if (!scores[uniqueId]) {
-      const avatarUrl = await cacheAvatar(uniqueId, data.profilePictureUrl);
-      scores[uniqueId] = { nickname: data.nickname || uniqueId, avatarUrl, score: 0 };
+      const pictureUrl = getPreferredPictureFormat(data.user?.avatarLarge?.urlList);
+      const avatarUrl = pictureUrl ? await cacheAvatar(uniqueId, pictureUrl) : null;
+      scores[uniqueId] = { nickname: data.user?.nickname || uniqueId, avatarUrl, score: 0 };
     }
     scores[uniqueId].score += likeCount;
 
@@ -97,9 +107,13 @@ async function main() {
     });
   });
 
-  connection.on('disconnected', () => {
+  connection.on(ControlEvent.DISCONNECTED, () => {
     console.warn('⚠️ Live déconnecté, reconnexion dans 10s...');
     setTimeout(connect, 10000);
+  });
+
+  connection.on(ControlEvent.ERROR, (err) => {
+    console.error('⚠️ Erreur de connexion (non fatale):', err?.message || err);
   });
 
   async function connect() {
