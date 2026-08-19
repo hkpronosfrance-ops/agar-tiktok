@@ -72,6 +72,15 @@ export default function OverlayPage() {
       setPodium(payload.ranking);
     });
 
+    channel.on('broadcast', { event: 'state_sync' }, ({ payload }) => {
+      roundEndsAtRef.current = payload.endsAt;
+      Object.entries(payload.scores || {}).forEach(([uniqueId, v]) => {
+        const viewer = ensureViewer(uniqueId, v.nickname, v.avatarUrl);
+        viewer.score = v.score;
+        if (v.avatarUrl && viewer.avatarUrl !== v.avatarUrl) viewer.avatarUrl = v.avatarUrl;
+      });
+    });
+
     channel.subscribe();
     return () => { supabase.removeChannel(channel); };
   }, []);

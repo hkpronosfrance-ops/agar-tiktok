@@ -77,6 +77,19 @@ function startRoundLoop() {
   }, 500);
 }
 
+// Republie l'état complet toutes les 3s : permet à un overlay qui se
+// connecte/reconnecte en cours de manche (ex: refresh de la page OBS) de
+// retrouver instantanément les scores en cours, sans attendre un nouveau like.
+function startStateSync() {
+  setInterval(() => {
+    broadcast('state_sync', {
+      scores,
+      endsAt: roundEndsAt,
+      durationSeconds: ROUND_SECONDS,
+    });
+  }, 3000);
+}
+
 async function main() {
   await channel.subscribe();
   console.log(`📡 Canal Supabase "${CHANNEL_NAME}" prêt`);
@@ -132,6 +145,7 @@ async function main() {
   connect();
 
   startRoundLoop();
+  startStateSync();
 }
 
 main();
