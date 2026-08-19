@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../../lib/supabaseClient';
 
 const CHANNEL_NAME = 'blob-battle';
@@ -24,6 +24,7 @@ export default function OverlayPage() {
   const [leaderboard, setLeaderboard] = useState([]);
   const [remaining, setRemaining] = useState(0);
   const [connected, setConnected] = useState(false);
+  const durationRef = useRef(150);
 
   // Séquence de fin de manche : 'round' (podium de la manche) -> 'alltime'
   // (classement général par victoires) -> 'rules' (règles + compte à rebours) -> null
@@ -32,6 +33,19 @@ export default function OverlayPage() {
   const [alltime, setAlltime] = useState([]);
   const [rulesRemaining, setRulesRemaining] = useState(0);
   const rulesIntervalRef = useRef(null);
+
+  const confetti = useMemo(() => {
+    const colors = ['#25F4EE', '#FE2C55', '#ffd23f', '#ff7a3d'];
+    return Array.from({ length: 18 }, (_, i) => ({
+      id: i,
+      left: Math.random() * 100,
+      delay: Math.random() * 0.6,
+      duration: 2.2 + Math.random() * 1.4,
+      color: colors[i % colors.length],
+      size: 6 + Math.random() * 6,
+      rotate: Math.random() * 360,
+    }));
+  }, [roundRanking]);
 
   function getImage(url) {
     if (!imageCache.current[url]) {
@@ -73,6 +87,7 @@ export default function OverlayPage() {
     channel.on('broadcast', { event: 'round_start' }, ({ payload }) => {
       viewersRef.current = {};
       roundEndsAtRef.current = payload.endsAt;
+      durationRef.current = payload.durationSeconds || durationRef.current;
       setPhase(null);
       if (rulesIntervalRef.current) clearInterval(rulesIntervalRef.current);
       setConnected(true);
@@ -99,6 +114,7 @@ export default function OverlayPage() {
 
     channel.on('broadcast', { event: 'state_sync' }, ({ payload }) => {
       roundEndsAtRef.current = payload.endsAt;
+      durationRef.current = payload.durationSeconds || durationRef.current;
       setConnected(true);
       Object.entries(payload.scores || {}).forEach(([uniqueId, v]) => {
         const viewer = ensureViewer(uniqueId, v.nickname, v.avatarUrl);
@@ -141,7 +157,9 @@ export default function OverlayPage() {
       const sorted = Object.values(viewersRef.current).sort((a, b) => a.score - b.score);
       sorted.forEach((v) => {
         v.displayScore += (v.score - v.displayScore) * Math.min(dt * 4, 1);
-        const r = radiusFor(v.displayScore);
+        const freshPop = v.popups.find((p) => p.t < 0.25);
+        const popScale = freshPop ? 1 + (0.25 - freshPop.t) * 0.6 : 1;
+        const r = radiusFor(v.displayScore) * popScale;
 
         v.wobblePhase += dt * 1.6;
         if (Math.random() < 0.01) { v.vx += (Math.random() - 0.5) * 0.3; v.vy += (Math.random() - 0.5) * 0.3; }
@@ -197,6 +215,15 @@ export default function OverlayPage() {
         ctx.arc(v.x, v.y, r * 0.86, 0, Math.PI * 2);
         ctx.lineWidth = 3; ctx.strokeStyle = v.color; ctx.stroke();
 
+        // Reflet glossy (donne un aspect "bulle" plus vivant)
+        ctx.save();
+        ctx.beginPath();
+        ctx.ellipse(v.x - r * 0.32, v.y - r * 0.4, r * 0.28, r * 0.16, -0.5, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255,255,255,.35)';
+        ctx.filter = 'blur(1px)';
+        ctx.fill();
+        ctx.restore();
+
         ctx.font = "700 16px Inter, sans-serif";
         ctx.textAlign = 'center';
         ctx.fillStyle = 'rgba(255,255,255,.92)';
@@ -233,6 +260,25 @@ export default function OverlayPage() {
 
   return (
     <div style={{ position: 'relative', width: '100vw', height: '100vh', background: 'transparent', overflow: 'hidden' }}>
+      <style>{`
+        @keyframes phaseIn {
+          from { opacity: 0; transform: scale(.94); }
+          to { opacity: 1; transform: scale(1); }
+        }
+        @keyframes crownBounce {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-6px); }
+        }
+        @keyframes confettiFall {
+          from { transform: translateY(-10vh) rotate(0deg); opacity: 1; }
+          to { transform: translateY(110vh) rotate(540deg); opacity: 0; }
+        }
+        @keyframes barPulse {
+          0%, 100% { opacity: .9; }
+          50% { opacity: .55; }
+        }
+      `}</style>
+
       <canvas ref={canvasRef} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }} />
 
       {!connected && (
@@ -279,6 +325,17 @@ export default function OverlayPage() {
         }}>
           1 like = 1 point
         </div>
+        <div style={{
+          marginTop: 8, width: 'clamp(140px, 34vw, 220px)', height: 5, borderRadius: 999,
+          background: 'rgba(255,255,255,.15)', overflow: 'hidden', marginInline: 'auto',
+        }}>
+          <div style={{
+            height: '100%', borderRadius: 999,
+            width: `${durationRef.current ? Math.min(100, (remaining / durationRef.current) * 100) : 0}%`,
+            background: remaining <= 30 ? 'linear-gradient(90deg,#FE2C55,#ff7a3d)' : 'linear-gradient(90deg,#25F4EE,#FE2C55)',
+            transition: 'width .3s linear',
+          }} />
+        </div>
       </div>
 
       <div style={{
@@ -293,33 +350,52 @@ export default function OverlayPage() {
         }}>
           👑 Classement live
         </h3>
-        {leaderboard.map((v, i) => (
-          <div key={v.nickname + i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 2px' }}>
-            <span style={{ width: 22, textAlign: 'center', fontSize: 'clamp(16px, 3.6vw, 19px)' }}>
-              {['🥇', '🥈', '🥉'][i] || <span style={{ color: '#6d7690', fontFamily: 'monospace', fontSize: 14 }}>{i + 1}</span>}
-            </span>
-            {v.avatarUrl
-              ? <img src={v.avatarUrl} style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover', flex: 'none' }} />
-              : <div style={{ width: 32, height: 32, borderRadius: '50%', background: v.color, flex: 'none' }} />}
-            <span style={{
-              flex: 1, color: '#e7eaf3', fontSize: 'clamp(15px, 3.4vw, 18px)', fontWeight: 600,
-              whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-            }}>
-              @{v.nickname}
-            </span>
-            <span style={{ color: '#25F4EE', fontFamily: 'monospace', fontSize: 'clamp(15px, 3.2vw, 18px)', fontWeight: 700 }}>
-              {v.score}
-            </span>
-          </div>
-        ))}
+        {leaderboard.map((v, i) => {
+          const maxScore = leaderboard[0]?.score || 1;
+          const pct = Math.max(6, (v.score / maxScore) * 100);
+          return (
+            <div key={v.nickname + i} style={{ position: 'relative', padding: '6px 2px', overflow: 'hidden', borderRadius: 8 }}>
+              <div style={{
+                position: 'absolute', inset: 0, borderRadius: 8,
+                background: `linear-gradient(90deg, ${v.color}33, transparent)`,
+                width: `${pct}%`, transition: 'width .4s ease',
+              }} />
+              <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ width: 22, textAlign: 'center', fontSize: 'clamp(16px, 3.6vw, 19px)' }}>
+                  {['🥇', '🥈', '🥉'][i] || <span style={{ color: '#6d7690', fontFamily: 'monospace', fontSize: 14 }}>{i + 1}</span>}
+                </span>
+                {v.avatarUrl
+                  ? <img src={v.avatarUrl} style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover', flex: 'none' }} />
+                  : <div style={{ width: 32, height: 32, borderRadius: '50%', background: v.color, flex: 'none' }} />}
+                <span style={{
+                  flex: 1, color: '#e7eaf3', fontSize: 'clamp(15px, 3.4vw, 18px)', fontWeight: 600,
+                  whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                }}>
+                  @{v.nickname}
+                </span>
+                <span style={{ color: '#25F4EE', fontFamily: 'monospace', fontSize: 'clamp(15px, 3.2vw, 18px)', fontWeight: 700 }}>
+                  {v.score}
+                </span>
+              </div>
+            </div>
+          );
+        })}
       </div>
 
       {phase === 'round' && (
         <div style={{
           position: 'absolute', inset: 0, zIndex: 30, display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: 'rgba(5,7,12,.78)', backdropFilter: 'blur(6px)',
+          background: 'rgba(5,7,12,.78)', backdropFilter: 'blur(6px)', overflow: 'hidden',
+          animation: 'phaseIn .35s ease-out',
         }}>
-          <div style={{ textAlign: 'center', padding: '0 8%' }}>
+          {confetti.map((c) => (
+            <div key={c.id} style={{
+              position: 'absolute', top: 0, left: `${c.left}%`, width: c.size, height: c.size * 0.4,
+              background: c.color, borderRadius: 2, transform: `rotate(${c.rotate}deg)`,
+              animation: `confettiFall ${c.duration}s ease-in ${c.delay}s infinite`,
+            }} />
+          ))}
+          <div style={{ textAlign: 'center', padding: '0 8%', position: 'relative' }}>
             <div style={{
               fontFamily: "'Baloo 2', sans-serif", fontWeight: 800, fontSize: 'clamp(30px, 8vw, 44px)', marginBottom: '5vh',
               display: 'inline-block',
@@ -340,7 +416,12 @@ export default function OverlayPage() {
                       border: `2px solid ${i === 0 ? '#ffd23f' : 'rgba(255,255,255,.4)'}`,
                     }} />
                   : null}
-                <span>{['🥇', '🥈', '🥉'][i]} @{p.nickname} — {p.score} pts</span>
+                <span>
+                  {i === 0
+                    ? <span style={{ display: 'inline-block', animation: 'crownBounce 1s ease-in-out infinite' }}>🥇</span>
+                    : ['', '🥈', '🥉'][i]}
+                  {' '}@{p.nickname} — {p.score} pts
+                </span>
               </div>
             ))}
           </div>
@@ -350,7 +431,7 @@ export default function OverlayPage() {
       {phase === 'alltime' && (
         <div style={{
           position: 'absolute', inset: 0, zIndex: 30, display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: 'rgba(5,7,12,.78)', backdropFilter: 'blur(6px)',
+          background: 'rgba(5,7,12,.78)', backdropFilter: 'blur(6px)', animation: 'phaseIn .35s ease-out',
         }}>
           <div style={{ textAlign: 'center', padding: '0 8%', width: '100%' }}>
             <div style={{
@@ -391,7 +472,7 @@ export default function OverlayPage() {
       {phase === 'rules' && (
         <div style={{
           position: 'absolute', inset: 0, zIndex: 30, display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: 'rgba(5,7,12,.78)', backdropFilter: 'blur(6px)',
+          background: 'rgba(5,7,12,.78)', backdropFilter: 'blur(6px)', animation: 'phaseIn .35s ease-out',
         }}>
           <div style={{ textAlign: 'center', padding: '0 9%' }}>
             <div style={{
@@ -412,7 +493,7 @@ export default function OverlayPage() {
             </div>
             <div style={{
               fontFamily: "'Baloo 2', sans-serif", fontWeight: 800, fontSize: 'clamp(40px, 10vw, 60px)',
-              color: '#fff',
+              color: '#fff', animation: rulesRemaining <= 3 ? 'barPulse .6s ease-in-out infinite' : 'none',
             }}>
               {rulesRemaining}s
             </div>
