@@ -24,6 +24,7 @@ export default function OverlayPage() {
   const [leaderboard, setLeaderboard] = useState([]);
   const [remaining, setRemaining] = useState(0);
   const [podium, setPodium] = useState(null);
+  const [connected, setConnected] = useState(false);
 
   function getImage(url) {
     if (!imageCache.current[url]) {
@@ -66,6 +67,7 @@ export default function OverlayPage() {
       viewersRef.current = {};
       roundEndsAtRef.current = payload.endsAt;
       setPodium(null);
+      setConnected(true);
     });
 
     channel.on('broadcast', { event: 'round_end' }, ({ payload }) => {
@@ -74,6 +76,7 @@ export default function OverlayPage() {
 
     channel.on('broadcast', { event: 'state_sync' }, ({ payload }) => {
       roundEndsAtRef.current = payload.endsAt;
+      setConnected(true);
       Object.entries(payload.scores || {}).forEach(([uniqueId, v]) => {
         const viewer = ensureViewer(uniqueId, v.nickname, v.avatarUrl);
         viewer.score = v.score;
@@ -209,6 +212,21 @@ export default function OverlayPage() {
     <div style={{ position: 'relative', width: '100vw', height: '100vh', background: 'transparent', overflow: 'hidden' }}>
       <canvas ref={canvasRef} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }} />
 
+      {!connected && (
+        <div style={{
+          position: 'absolute', top: '46%', left: '50%', transform: 'translate(-50%,-50%)',
+          textAlign: 'center', zIndex: 12, padding: '10px 20px', borderRadius: 14,
+          background: 'rgba(8,10,18,.42)', backdropFilter: 'blur(6px)',
+        }}>
+          <div style={{
+            fontFamily: "'Baloo 2', sans-serif", fontWeight: 700, color: 'rgba(255,255,255,.75)',
+            fontSize: 'clamp(14px, 3.6vw, 18px)',
+          }}>
+            En attente de connexion au live…
+          </div>
+        </div>
+      )}
+
       <div style={{ position: 'absolute', top: '5%', left: '50%', transform: 'translateX(-50%)', zIndex: 15 }}>
         <div style={{
           fontFamily: "'Baloo 2', sans-serif", fontWeight: 800,
@@ -227,6 +245,13 @@ export default function OverlayPage() {
           }}>
             {fmt(remaining)}
           </span>
+        </div>
+        <div style={{
+          textAlign: 'center', marginTop: 6, fontFamily: 'Inter, sans-serif', fontWeight: 600,
+          fontSize: 'clamp(10px, 2.4vw, 12px)', letterSpacing: '.06em', textTransform: 'uppercase',
+          color: 'rgba(255,255,255,.55)', textShadow: '0 1px 3px rgba(0,0,0,.6)',
+        }}>
+          1 like = 1 point
         </div>
       </div>
 
