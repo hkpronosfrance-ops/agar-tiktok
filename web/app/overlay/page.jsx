@@ -12,7 +12,7 @@ function hashColor(str) {
 }
 
 function radiusFor(score) {
-  return 34 + Math.sqrt(score) * 6.2;
+  return 42 + Math.sqrt(score) * 7.2;
 }
 
 export default function OverlayPage() {
@@ -174,14 +174,14 @@ export default function OverlayPage() {
         ctx.arc(v.x, v.y, r * 0.86, 0, Math.PI * 2);
         ctx.lineWidth = 3; ctx.strokeStyle = v.color; ctx.stroke();
 
-        ctx.font = "700 12px Inter, sans-serif";
+        ctx.font = "700 16px Inter, sans-serif";
         ctx.textAlign = 'center';
         ctx.fillStyle = 'rgba(255,255,255,.92)';
         ctx.shadowColor = 'rgba(0,0,0,.6)'; ctx.shadowBlur = 4;
-        ctx.fillText('@' + v.nickname, v.x, v.y + r + 16);
-        ctx.font = "700 11px 'JetBrains Mono', monospace";
+        ctx.fillText('@' + v.nickname, v.x, v.y + r + 20);
+        ctx.font = "700 14px 'JetBrains Mono', monospace";
         ctx.fillStyle = '#25F4EE';
-        ctx.fillText(Math.round(v.displayScore) + ' pts', v.x, v.y + r + 30);
+        ctx.fillText(Math.round(v.displayScore) + ' pts', v.x, v.y + r + 38);
         ctx.shadowBlur = 0;
 
         v.popups = v.popups.filter((p) => p.t < 1);
@@ -189,10 +189,10 @@ export default function OverlayPage() {
           p.t += dt * 0.9;
           ctx.save();
           ctx.globalAlpha = 1 - p.t;
-          ctx.font = "800 15px 'Baloo 2', sans-serif";
+          ctx.font = "800 19px 'Baloo 2', sans-serif";
           ctx.fillStyle = '#FE2C55';
           ctx.textAlign = 'center';
-          ctx.fillText('+' + p.n, v.x, v.y - r - 10 - p.t * 22);
+          ctx.fillText('+' + p.n, v.x, v.y - r - 12 - p.t * 26);
           ctx.restore();
         });
       });
@@ -220,7 +220,7 @@ export default function OverlayPage() {
         }}>
           <div style={{
             fontFamily: "'Baloo 2', sans-serif", fontWeight: 700, color: 'rgba(255,255,255,.75)',
-            fontSize: 'clamp(14px, 3.6vw, 18px)',
+            fontSize: 'clamp(17px, 4.2vw, 22px)',
           }}>
             En attente de connexion au live…
           </div>
@@ -230,8 +230,8 @@ export default function OverlayPage() {
       <div style={{ position: 'absolute', top: '5%', left: '50%', transform: 'translateX(-50%)', zIndex: 15 }}>
         <div style={{
           fontFamily: "'Baloo 2', sans-serif", fontWeight: 800,
-          fontSize: 'clamp(36px, 8.5vw, 60px)', lineHeight: 1,
-          padding: '6px 22px', borderRadius: 999,
+          fontSize: 'clamp(50px, 10vw, 84px)', lineHeight: 1,
+          padding: '8px 28px', borderRadius: 999,
           background: 'rgba(8,10,18,.42)', backdropFilter: 'blur(6px)',
           border: remaining <= 30 ? '1px solid rgba(254,44,85,.5)' : '1px solid rgba(255,255,255,.08)',
           boxShadow: remaining <= 30 ? '0 0 24px rgba(254,44,85,.35)' : 'none',
@@ -250,9 +250,9 @@ export default function OverlayPage() {
           </span>
         </div>
         <div style={{
-          textAlign: 'center', marginTop: 6, fontFamily: 'Inter, sans-serif', fontWeight: 600,
-          fontSize: 'clamp(10px, 2.4vw, 12px)', letterSpacing: '.06em', textTransform: 'uppercase',
-          color: 'rgba(255,255,255,.55)', textShadow: '0 1px 3px rgba(0,0,0,.6)',
+          textAlign: 'center', marginTop: 8, fontFamily: 'Inter, sans-serif', fontWeight: 700,
+          fontSize: 'clamp(13px, 2.8vw, 16px)', letterSpacing: '.06em', textTransform: 'uppercase',
+          color: 'rgba(255,255,255,.65)', textShadow: '0 1px 3px rgba(0,0,0,.6)',
         }}>
           1 like = 1 point
         </div>
@@ -260,31 +260,31 @@ export default function OverlayPage() {
 
       <div style={{
         position: 'absolute', top: '13%', left: '4%',
-        width: 'clamp(190px, 46vw, 260px)',
+        width: 'clamp(240px, 52vw, 340px)',
         background: 'rgba(10,13,22,.5)', border: '1px solid rgba(255,255,255,.09)',
-        borderRadius: 16, padding: '12px 12px 8px', backdropFilter: 'blur(10px)', zIndex: 15,
+        borderRadius: 18, padding: '16px 16px 10px', backdropFilter: 'blur(10px)', zIndex: 15,
       }}>
         <h3 style={{
-          fontFamily: "'Baloo 2', sans-serif", color: '#fff', margin: '0 0 8px',
-          fontSize: 'clamp(13px, 3.4vw, 16px)', display: 'flex', alignItems: 'center', gap: 6,
+          fontFamily: "'Baloo 2', sans-serif", color: '#fff', margin: '0 0 10px',
+          fontSize: 'clamp(17px, 4vw, 21px)', display: 'flex', alignItems: 'center', gap: 7,
         }}>
           👑 Classement live
         </h3>
         {leaderboard.map((v, i) => (
-          <div key={v.nickname + i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 2px' }}>
-            <span style={{ width: 18, textAlign: 'center', fontSize: 'clamp(12px, 3vw, 14px)' }}>
-              {['🥇', '🥈', '🥉'][i] || <span style={{ color: '#6d7690', fontFamily: 'monospace', fontSize: 11 }}>{i + 1}</span>}
+          <div key={v.nickname + i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 2px' }}>
+            <span style={{ width: 22, textAlign: 'center', fontSize: 'clamp(16px, 3.6vw, 19px)' }}>
+              {['🥇', '🥈', '🥉'][i] || <span style={{ color: '#6d7690', fontFamily: 'monospace', fontSize: 14 }}>{i + 1}</span>}
             </span>
             {v.avatarUrl
-              ? <img src={v.avatarUrl} style={{ width: 24, height: 24, borderRadius: '50%', objectFit: 'cover', flex: 'none' }} />
-              : <div style={{ width: 24, height: 24, borderRadius: '50%', background: v.color, flex: 'none' }} />}
+              ? <img src={v.avatarUrl} style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover', flex: 'none' }} />
+              : <div style={{ width: 32, height: 32, borderRadius: '50%', background: v.color, flex: 'none' }} />}
             <span style={{
-              flex: 1, color: '#e7eaf3', fontSize: 'clamp(11px, 2.8vw, 13px)', fontWeight: 600,
+              flex: 1, color: '#e7eaf3', fontSize: 'clamp(15px, 3.4vw, 18px)', fontWeight: 600,
               whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
             }}>
               @{v.nickname}
             </span>
-            <span style={{ color: '#25F4EE', fontFamily: 'monospace', fontSize: 'clamp(11px, 2.6vw, 13px)', fontWeight: 700 }}>
+            <span style={{ color: '#25F4EE', fontFamily: 'monospace', fontSize: 'clamp(15px, 3.2vw, 18px)', fontWeight: 700 }}>
               {v.score}
             </span>
           </div>
@@ -298,7 +298,7 @@ export default function OverlayPage() {
         }}>
           <div style={{ textAlign: 'center', padding: '0 8%' }}>
             <div style={{
-              fontFamily: "'Baloo 2', sans-serif", fontWeight: 800, fontSize: 'clamp(24px, 7vw, 34px)', marginBottom: '5vh',
+              fontFamily: "'Baloo 2', sans-serif", fontWeight: 800, fontSize: 'clamp(30px, 8vw, 44px)', marginBottom: '5vh',
               display: 'inline-block',
               backgroundImage: 'linear-gradient(90deg,#25F4EE,#FE2C55)',
               backgroundClip: 'text', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', color: 'transparent',
@@ -307,13 +307,13 @@ export default function OverlayPage() {
             </div>
             {podium.map((p, i) => (
               <div key={p.uniqueId} style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
-                color: '#fff', fontFamily: 'Inter, sans-serif', fontSize: 'clamp(15px, 4.2vw, 20px)',
-                fontWeight: i === 0 ? 700 : 500, margin: '10px 0',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12,
+                color: '#fff', fontFamily: 'Inter, sans-serif', fontSize: 'clamp(19px, 5vw, 25px)',
+                fontWeight: i === 0 ? 700 : 500, margin: '14px 0',
               }}>
                 {p.avatarUrl
                   ? <img src={p.avatarUrl} style={{
-                      width: i === 0 ? 52 : 38, height: i === 0 ? 52 : 38, borderRadius: '50%', objectFit: 'cover',
+                      width: i === 0 ? 64 : 48, height: i === 0 ? 64 : 48, borderRadius: '50%', objectFit: 'cover',
                       border: `2px solid ${i === 0 ? '#ffd23f' : 'rgba(255,255,255,.4)'}`,
                     }} />
                   : null}
