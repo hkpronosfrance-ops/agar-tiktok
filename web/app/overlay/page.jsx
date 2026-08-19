@@ -42,8 +42,8 @@ export default function OverlayPage() {
       viewersRef.current[uniqueId] = {
         nickname, avatarUrl, color: c.fill, glow: c.glow,
         score: 0, displayScore: 0,
-        x: Math.random() * window.innerWidth * 0.7 + window.innerWidth * 0.15,
-        y: Math.random() * window.innerHeight * 0.6 + window.innerHeight * 0.2,
+        x: window.innerWidth * 0.1 + Math.random() * window.innerWidth * 0.62,
+        y: window.innerHeight * 0.22 + Math.random() * window.innerHeight * 0.5,
         vx: (Math.random() - 0.5) * 0.4, vy: (Math.random() - 0.5) * 0.4,
         wobblePhase: Math.random() * Math.PI * 2,
         popups: [],
@@ -122,11 +122,16 @@ export default function OverlayPage() {
         const speed = Math.hypot(v.vx, v.vy);
         if (speed > 0.5) { v.vx = v.vx / speed * 0.5; v.vy = v.vy / speed * 0.5; }
         v.x += v.vx * dt * 60; v.y += v.vy * dt * 60;
-        const margin = r + 10;
-        if (v.x < margin) { v.x = margin; v.vx *= -1; }
-        if (v.x > window.innerWidth - margin) { v.x = window.innerWidth - margin; v.vx *= -1; }
-        if (v.y < margin + 70) { v.y = margin + 70; v.vy *= -1; }
-        if (v.y > window.innerHeight - margin - 40) { v.y = window.innerHeight - margin - 40; v.vy *= -1; }
+        // Zones réservées à l'UI native TikTok Live : profil/viewers en haut,
+        // like/cadeaux à droite, légende/commentaires en bas.
+        const safeLeft = window.innerWidth * 0.05 + r;
+        const safeRight = window.innerWidth * 0.82 - r;
+        const safeTop = window.innerHeight * 0.16 + r;
+        const safeBottom = window.innerHeight * 0.82 - r;
+        if (v.x < safeLeft) { v.x = safeLeft; v.vx *= -1; }
+        if (v.x > safeRight) { v.x = safeRight; v.vx *= -1; }
+        if (v.y < safeTop) { v.y = safeTop; v.vy *= -1; }
+        if (v.y > safeBottom) { v.y = safeBottom; v.vy *= -1; }
 
         ctx.save();
         ctx.beginPath();
@@ -204,28 +209,56 @@ export default function OverlayPage() {
     <div style={{ position: 'relative', width: '100vw', height: '100vh', background: 'transparent', overflow: 'hidden' }}>
       <canvas ref={canvasRef} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }} />
 
-      <div style={{ position: 'absolute', top: 16, left: '50%', transform: 'translateX(-50%)', zIndex: 15 }}>
+      <div style={{ position: 'absolute', top: '5%', left: '50%', transform: 'translateX(-50%)', zIndex: 15 }}>
         <div style={{
-          fontFamily: "'Baloo 2', sans-serif", fontWeight: 800, fontSize: 52,
-          background: 'linear-gradient(90deg,#25F4EE,#FE2C55)', WebkitBackgroundClip: 'text', color: 'transparent',
+          fontFamily: "'Baloo 2', sans-serif", fontWeight: 800,
+          fontSize: 'clamp(36px, 8.5vw, 60px)', lineHeight: 1,
+          padding: '6px 22px', borderRadius: 999,
+          background: 'rgba(8,10,18,.42)', backdropFilter: 'blur(6px)',
+          border: remaining <= 30 ? '1px solid rgba(254,44,85,.5)' : '1px solid rgba(255,255,255,.08)',
+          boxShadow: remaining <= 30 ? '0 0 24px rgba(254,44,85,.35)' : 'none',
+          transition: 'box-shadow .3s, border-color .3s',
         }}>
-          {fmt(remaining)}
+          <span style={{
+            background: remaining <= 30
+              ? 'linear-gradient(90deg,#FE2C55,#ff7a3d)'
+              : 'linear-gradient(90deg,#25F4EE,#FE2C55)',
+            WebkitBackgroundClip: 'text', color: 'transparent',
+          }}>
+            {fmt(remaining)}
+          </span>
         </div>
       </div>
 
       <div style={{
-        position: 'absolute', top: 100, right: 20, width: 240, background: 'rgba(10,13,22,.55)',
-        border: '1px solid rgba(255,255,255,.09)', borderRadius: 18, padding: 14, backdropFilter: 'blur(10px)', zIndex: 15,
+        position: 'absolute', top: '13%', left: '4%',
+        width: 'clamp(190px, 46vw, 260px)',
+        background: 'rgba(10,13,22,.5)', border: '1px solid rgba(255,255,255,.09)',
+        borderRadius: 16, padding: '12px 12px 8px', backdropFilter: 'blur(10px)', zIndex: 15,
       }}>
-        <h3 style={{ fontFamily: "'Baloo 2', sans-serif", color: '#fff', margin: '0 0 10px', fontSize: 15 }}>👑 Classement live</h3>
+        <h3 style={{
+          fontFamily: "'Baloo 2', sans-serif", color: '#fff', margin: '0 0 8px',
+          fontSize: 'clamp(13px, 3.4vw, 16px)', display: 'flex', alignItems: 'center', gap: 6,
+        }}>
+          👑 Classement live
+        </h3>
         {leaderboard.map((v, i) => (
-          <div key={v.nickname + i} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '5px 4px' }}>
-            <span style={{ fontFamily: 'monospace', width: 16, color: i === 0 ? '#ffd23f' : '#6d7690', fontSize: 12 }}>{i + 1}</span>
+          <div key={v.nickname + i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 2px' }}>
+            <span style={{ width: 18, textAlign: 'center', fontSize: 'clamp(12px, 3vw, 14px)' }}>
+              {['🥇', '🥈', '🥉'][i] || <span style={{ color: '#6d7690', fontFamily: 'monospace', fontSize: 11 }}>{i + 1}</span>}
+            </span>
             {v.avatarUrl
-              ? <img src={v.avatarUrl} style={{ width: 26, height: 26, borderRadius: '50%', objectFit: 'cover' }} />
-              : <div style={{ width: 26, height: 26, borderRadius: '50%', background: v.color }} />}
-            <span style={{ flex: 1, color: '#e7eaf3', fontSize: 12.5, fontWeight: 600 }}>@{v.nickname}</span>
-            <span style={{ color: '#25F4EE', fontFamily: 'monospace', fontSize: 12, fontWeight: 700 }}>{v.score}</span>
+              ? <img src={v.avatarUrl} style={{ width: 24, height: 24, borderRadius: '50%', objectFit: 'cover', flex: 'none' }} />
+              : <div style={{ width: 24, height: 24, borderRadius: '50%', background: v.color, flex: 'none' }} />}
+            <span style={{
+              flex: 1, color: '#e7eaf3', fontSize: 'clamp(11px, 2.8vw, 13px)', fontWeight: 600,
+              whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+            }}>
+              @{v.nickname}
+            </span>
+            <span style={{ color: '#25F4EE', fontFamily: 'monospace', fontSize: 'clamp(11px, 2.6vw, 13px)', fontWeight: 700 }}>
+              {v.score}
+            </span>
           </div>
         ))}
       </div>
@@ -233,18 +266,28 @@ export default function OverlayPage() {
       {podium && (
         <div style={{
           position: 'absolute', inset: 0, zIndex: 30, display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: 'rgba(5,7,12,.72)', backdropFilter: 'blur(6px)',
+          background: 'rgba(5,7,12,.78)', backdropFilter: 'blur(6px)',
         }}>
-          <div style={{ textAlign: 'center' }}>
+          <div style={{ textAlign: 'center', padding: '0 8%' }}>
             <div style={{
-              fontFamily: "'Baloo 2', sans-serif", fontWeight: 800, fontSize: 30, marginBottom: 20,
+              fontFamily: "'Baloo 2', sans-serif", fontWeight: 800, fontSize: 'clamp(24px, 7vw, 34px)', marginBottom: '5vh',
               background: 'linear-gradient(90deg,#25F4EE,#FE2C55)', WebkitBackgroundClip: 'text', color: 'transparent',
             }}>
               FIN DE MANCHE
             </div>
             {podium.map((p, i) => (
-              <div key={p.uniqueId} style={{ color: '#fff', fontFamily: 'Inter, sans-serif', fontSize: 16, margin: '4px 0' }}>
-                {i === 0 ? '👑 ' : `${i + 1}. `}@{p.nickname} — {p.score} pts
+              <div key={p.uniqueId} style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+                color: '#fff', fontFamily: 'Inter, sans-serif', fontSize: 'clamp(15px, 4.2vw, 20px)',
+                fontWeight: i === 0 ? 700 : 500, margin: '10px 0',
+              }}>
+                {p.avatarUrl
+                  ? <img src={p.avatarUrl} style={{
+                      width: i === 0 ? 52 : 38, height: i === 0 ? 52 : 38, borderRadius: '50%', objectFit: 'cover',
+                      border: `2px solid ${i === 0 ? '#ffd23f' : 'rgba(255,255,255,.4)'}`,
+                    }} />
+                  : null}
+                <span>{['🥇', '🥈', '🥉'][i]} @{p.nickname} — {p.score} pts</span>
               </div>
             ))}
           </div>
