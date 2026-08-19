@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { WebcastPushConnection } from 'tiktok-live-connector';
+import { WebcastPushConnection } from 'tiktok-live-connector/legacy';
 import { createClient } from '@supabase/supabase-js';
 
 const TIKTOK_USERNAME = process.env.TIKTOK_USERNAME;
